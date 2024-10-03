@@ -1,182 +1,142 @@
-import {defer, type LoaderFunctionArgs} from '@shopify/remix-oxygen';
-import {Await, useLoaderData, Link, type MetaFunction} from '@remix-run/react';
-import {Suspense} from 'react';
+import {useLoaderData, Link} from '@remix-run/react';
 import {Image, Money} from '@shopify/hydrogen';
-import type {
-  FeaturedCollectionFragment,
-  RecommendedProductsQuery,
-} from 'storefrontapi.generated';
+import {json, type LoaderFunctionArgs} from '@shopify/remix-oxygen';
+import {ShoppingCart, Search} from 'lucide-react';
 
-export const meta: MetaFunction = () => {
-  return [{title: 'Hydrogen | Home'}];
-};
+export async function loader({context}: LoaderFunctionArgs) {
+  const {storefront} = context;
+  const {products} = await storefront.query(FEATURED_PRODUCTS_QUERY);
 
-export async function loader(args: LoaderFunctionArgs) {
-  // Start fetching non-critical data without blocking time to first byte
-  const deferredData = loadDeferredData(args);
-
-  // Await the critical data required to render initial state of the page
-  const criticalData = await loadCriticalData(args);
-
-  return defer({...deferredData, ...criticalData});
-}
-
-/**
- * Load data necessary for rendering content above the fold. This is the critical data
- * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
- */
-async function loadCriticalData({context}: LoaderFunctionArgs) {
-  const [{collections}] = await Promise.all([
-    context.storefront.query(FEATURED_COLLECTION_QUERY),
-    // Add other queries here, so that they are loaded in parallel
-  ]);
-
-  return {
-    featuredCollection: collections.nodes[0],
-  };
-}
-
-/**
- * Load data for rendering content below the fold. This data is deferred and will be
- * fetched after the initial page load. If it's unavailable, the page should still 200.
- * Make sure to not throw any errors here, as it will cause the page to 500.
- */
-function loadDeferredData({context}: LoaderFunctionArgs) {
-  const recommendedProducts = context.storefront
-    .query(RECOMMENDED_PRODUCTS_QUERY)
-    .catch((error) => {
-      // Log query errors, but don't throw them so the page can still render
-      console.error(error);
-      return null;
-    });
-
-  return {
-    recommendedProducts,
-  };
+  return json({
+    products: products.nodes,
+  });
 }
 
 export default function Homepage() {
-  const data = useLoaderData<typeof loader>();
-  return (
-    <div className="home">
-      <FeaturedCollection collection={data.featuredCollection} />
-      <RecommendedProducts products={data.recommendedProducts} />
-    </div>
-  );
-}
+  const {products} = useLoaderData<typeof loader>();
 
-function FeaturedCollection({
-  collection,
-}: {
-  collection: FeaturedCollectionFragment;
-}) {
-  if (!collection) return null;
-  const image = collection?.image;
   return (
-    <Link
-      className="featured-collection"
-      to={`/collections/${collection.handle}`}
-    >
-      {image && (
-        <div className="featured-collection-image">
-          <Image data={image} sizes="100vw" />
-        </div>
-      )}
-      <h1>{collection.title}</h1>
-    </Link>
-  );
-}
-
-function RecommendedProducts({
-  products,
-}: {
-  products: Promise<RecommendedProductsQuery | null>;
-}) {
-  return (
-    <div className="recommended-products">
-      <h2>Recommended Products</h2>
-      <Suspense fallback={<div>Loading...</div>}>
-        <Await resolve={products}>
-          {(response) => (
-            <div className="recommended-products-grid">
-              {response
-                ? response.products.nodes.map((product) => (
-                    <Link
-                      key={product.id}
-                      className="recommended-product"
-                      to={`/products/${product.handle}`}
-                    >
-                      <Image
-                        data={product.images.nodes[0]}
-                        aspectRatio="1/1"
-                        sizes="(min-width: 45em) 20vw, 50vw"
-                      />
-                      <h4>{product.title}</h4>
-                      <small>
-                        <Money data={product.priceRange.minVariantPrice} />
-                      </small>
-                    </Link>
-                  ))
-                : null}
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      <div className="stars"></div>
+      <header className="flex justify-between items-center p-4 relative z-10">
+        <nav>
+          <div className="flex justify-between items-center w-full ">
+            <h2>
+              <Link to="/" className="hover:text-gray-300">
+                Shop
+              </Link>
+            </h2>
+            <h2>
+              <Link to="/contact" className="hover:text-gray-300">
+                Contact
+              </Link>
+            </h2>
+          </div>
+        </nav>
+        <div className="flex-grow flex justify-center">
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-black rounded-full flex flex-col items-center justify-center">
+              <div className="flex space-x-2 mb-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              </div>
+              <div className="w-6 h-2 bg-green-500 rounded-full"></div>
             </div>
-          )}
-        </Await>
-      </Suspense>
-      <br />
+          </div>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Search className="w-6 h-6" />
+          <Link to="/cart" className="flex items-center">
+            <ShoppingCart className="w-6 h-6" />
+            <span className="ml-2">Cart (0)</span>
+          </Link>
+        </div>
+      </header>
+      <div className="flex mt-8 relative z-10">
+        <aside className="w-48 p-4">
+          <nav>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/new" className="hover:text-gray-300">
+                  New
+                </Link>
+              </li>
+              <li>
+                <Link to="/hoodies" className="hover:text-gray-300">
+                  Hoodies
+                </Link>
+              </li>
+              <li>
+                <Link to="/tees" className="hover:text-gray-300">
+                  Tees
+                </Link>
+              </li>
+              <li>
+                <Link to="/jackets" className="hover:text-gray-300">
+                  Jackets
+                </Link>
+              </li>
+              <li>
+                <Link to="/pants" className="hover:text-gray-300">
+                  Pants
+                </Link>
+              </li>
+              <li>
+                <Link to="/skate" className="hover:text-gray-300">
+                  Skate
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </aside>
+        <main className="flex-grow p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {products.map((product: any) => (
+              <div key={product.id} className="product-card">
+                <Image
+                  data={product.featuredImage}
+                  alt={product.title}
+                  className="w-full h-auto"
+                />
+                <h3 className="mt-2 text-lg">{product.title}</h3>
+                <div className="flex justify-between items-center mt-2">
+                  <Money data={product.priceRange.minVariantPrice} />
+                  {product.availableForSale ? (
+                    <span className="text-green-500">In stock</span>
+                  ) : (
+                    <span className="text-red-500">Sold out</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
 
-const FEATURED_COLLECTION_QUERY = `#graphql
-  fragment FeaturedCollection on Collection {
-    id
-    title
-    image {
-      id
-      url
-      altText
-      width
-      height
-    }
-    handle
-  }
-  query FeaturedCollection($country: CountryCode, $language: LanguageCode)
-    @inContext(country: $country, language: $language) {
-    collections(first: 1, sortKey: UPDATED_AT, reverse: true) {
-      nodes {
-        ...FeaturedCollection
-      }
-    }
-  }
-` as const;
-
-const RECOMMENDED_PRODUCTS_QUERY = `#graphql
-  fragment RecommendedProduct on Product {
-    id
-    title
-    handle
-    priceRange {
-      minVariantPrice {
-        amount
-        currencyCode
-      }
-    }
-    images(first: 1) {
+const FEATURED_PRODUCTS_QUERY = `#graphql
+  query FeaturedProducts {
+    products(first: 8) {
       nodes {
         id
-        url
-        altText
-        width
-        height
+        title
+        handle
+        featuredImage {
+          url
+          altText
+          width
+          height
+        }
+        priceRange {
+          minVariantPrice {
+            amount
+            currencyCode
+          }
+        }
+        availableForSale
       }
     }
   }
-  query RecommendedProducts ($country: CountryCode, $language: LanguageCode)
-    @inContext(country: $country, language: $language) {
-    products(first: 4, sortKey: UPDATED_AT, reverse: true) {
-      nodes {
-        ...RecommendedProduct
-      }
-    }
-  }
-` as const;
+`;
